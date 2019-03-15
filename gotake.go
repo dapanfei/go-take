@@ -10,15 +10,14 @@ import (
 	"io"
 	"sync"
 	"time"
+	"flag"
+	"fmt"
 )
 
 
 var f *os.File
-var nexturl string
-var name = "text/圣墟.txt"
-
 var URLSTR = "https://www.biqiuge.com"
-
+var wg sync.WaitGroup
 
 type Workdist struct {
 	Url	string
@@ -27,13 +26,29 @@ type Workdist struct {
 const (
 	taskload		    = 100
 )
-var tasknum = 100
-var wg sync.WaitGroup
 
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+func checkFileIsExist(filename string) bool {
+	var exist = true
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		exist = false
+	}
+	return exist
+}
+
+func WriteWithIoutil(content string) {
+	_, err := io.WriteString(f, content) //写入文件(字符串)
+	check(err)
+}
 
 
 //获取目录列表
-func getlist (listurl string){
+func getListMain (listurl string,tasknum int){
 	tasks := make(chan Workdist,taskload)
 
 	wg.Add(tasknum)
@@ -53,34 +68,12 @@ func getlist (listurl string){
 			Url:link,
 		}
 		time.Sleep(time.Duration(10)*time.Millisecond)
-
 		tasks <- task
 		//fmt.Printf("Link #%d: '%s'\n", index, link)
 	})
 
 	close(tasks)
 	wg.Wait()
-
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-func checkFileIsExist(filename string) bool {
-	var exist = true
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		exist = false
-	}
-	return exist
-}
-
-func WriteWithIoutil(content string) {
-	//mutex.Lock()
-	//defer mutex.Unlock()
-	_, err := io.WriteString(f, content) //写入文件(字符串)
-	check(err)
 
 }
 
@@ -93,18 +86,17 @@ func worker(tasks chan Workdist) {
 			//log.Print("通道关闭")
 			return
 		}
-		zhengwen(URLSTR + task.Url)
+		getContent(URLSTR + task.Url)
 	}
-
-
 }
-var mutex sync.Mutex
-func zhengwen(newurl string){
+
+func getContent(newurl string){
 	enc := mahonia.NewDecoder("gbk")
 	doc, err := goquery.NewDocument(newurl)
 	if err != nil {
 		log.Fatal(err)
 	}
+	//目录获取
 	doc.Find(".content h1").Each(func(i int, s *goquery.Selection) {
 		centstr := s.Text()
 		WriteWithIoutil("\r\n"+strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1)+"\r\n")
@@ -120,11 +112,28 @@ func zhengwen(newurl string){
 
 
 
+
+
+var listmain = flag.String("listmain", "null", "Enter the URL of the novel catalogue")
+var tasknum = flag.Int("p", 1, "Number of threads")
+var savepath = flag.String("save", "text/1.txt", "Address of Storage Documents for Novels")
+
 func main() {
+
+	flag.Parse()
+
 	timestrat:=time.Now().Unix()
 	var err1 error
-	f, err1 = os.Create(name)
+
+	//检查文件存在，删除重建
+	if checkFileIsExist(*savepath) {
+		del := os.Remove(*savepath);
+		if del != nil {
+			fmt.Println(del);
+		}
+	}
+	f, err1 = os.Create(*savepath)
 	check(err1)
-	getlist("https://www.biqiuge.com/book/4772/")
+	getListMain(*listmain,*tasknum)
 	log.Print("爬取使用时间为：",time.Now().Unix() - timestrat)
 }
