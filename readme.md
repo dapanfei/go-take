@@ -11,8 +11,8 @@
     ./go-take -listmain https://www.biqiuge.com/book/4772/  -p 50 -save  text/xxx.txt
 ##### 参数说明：
     -listmain string
-		Enter the URL of the novel catalogue (default "null") (指定目录URL)
+	Enter the URL of the novel catalogue (default "null") (指定目录URL)
     -p int
         Number of threads (default 1) (指定并发爬取线程数量)
     -save string
-		Address of Storage Documents for Novels (default "text/1.txt") (指定结果存放文件)
+	Address of Storage Documents for Novels (default "text/1.txt") (指定结果存放文件)
