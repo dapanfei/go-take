@@ -12,14 +12,12 @@ import (
 	"time"
 	"flag"
 	"fmt"
+	"sort"
 )
 
 
-var f *os.File
-var URLSTR = "https://www.biqiuge.com"
-var wg sync.WaitGroup
-
 type Workdist struct {
+	Index int
 	Url	string
 }
 
@@ -28,7 +26,10 @@ const (
 )
 var (
 	mutex *sync.Mutex
-
+	f *os.File
+	URLSTR = "https://www.biqiuge.com"
+	wg sync.WaitGroup
+	txtstr string
 )
 
 
@@ -48,8 +49,6 @@ func checkFileIsExist(filename string) bool {
 
 
 func WriteWithIoutil(content string) {
-
-
 	mutex.Lock()
 	defer mutex.Unlock()
 	_, err := io.WriteString(f, content) //写入文件(字符串)
@@ -75,11 +74,12 @@ func getListMain (listurl string,tasknum int){
 		link, _ := linkTag.Attr("href")
 		//linkText := linkTag.Text()
 		task := Workdist{
+			Index:index,
 			Url:link,
 		}
 		time.Sleep(time.Duration(10)*time.Millisecond)
 		tasks <- task
-		log.Print("Link #%d: '%s'\n", index, link)
+
 	})
 
 	close(tasks)
@@ -96,12 +96,13 @@ func worker(tasks chan Workdist) {
 			//log.Print("通道关闭")
 			return
 		}
-		getContent(URLSTR + task.Url)
+		getContent(URLSTR + task.Url,task.Index)
 	}
 }
-
-func getContent(newurl string){
+var mapText  map[int]string
+func getContent(newurl string,index int){
 	enc := mahonia.NewDecoder("gbk")
+	log.Print("Link #",index,"  ","URL # ",newurl)
 	doc, err := goquery.NewDocument(newurl)
 	if err != nil {
 		log.Fatal(err)
@@ -116,14 +117,10 @@ func getContent(newurl string){
 	doc.Find(".showtxt").Each(func(i int, s *goquery.Selection) {
 		centstr := s.Text()
 		txt += strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1)
-		WriteWithIoutil(txt)
-		log.Print(txt)
+		//log.Print(txt)
 	})
+	mapText[index] = txt
 }
-
-
-
-
 
 var listmain = flag.String("listmain", "null", "Enter the URL of the novel catalogue")
 var tasknum = flag.Int("p", 1, "Number of threads")
@@ -133,6 +130,7 @@ func main() {
 
 	flag.Parse()
 	mutex = new(sync.Mutex)
+	mapText = make(map[int]string)
 	timestrat:=time.Now().Unix()
 	var err1 error
 
@@ -146,5 +144,24 @@ func main() {
 	f, err1 = os.Create(*savepath)
 	check(err1)
 	getListMain(*listmain,*tasknum)
+
+
+	//map排序存储文件
+	type kv struct {
+		Key   int
+		Value string
+	}
+	var ss []kv
+	for k, v := range mapText {
+		ss = append(ss, kv{k, v})
+	}
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Key < ss[j].Key  // 升序
+	})
+
+	for _, kv := range ss {
+		txtstr += kv.Value
+	}
+	WriteWithIoutil(txtstr)
 	log.Print("爬取使用时间为：",time.Now().Unix() - timestrat)
 }
