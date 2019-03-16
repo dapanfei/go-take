@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
-	"mahonia"
+	"github.com/axgle/mahonia"
 	"io"
 	"sync"
 	"time"
