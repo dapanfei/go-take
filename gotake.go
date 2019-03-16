@@ -26,11 +26,16 @@ type Workdist struct {
 const (
 	taskload		    = 100
 )
+var (
+	mutex *sync.Mutex
+
+)
 
 
 func check(e error) {
 	if e != nil {
-		panic(e)
+		log.Print(e)
+		//panic(e)
 	}
 }
 func checkFileIsExist(filename string) bool {
@@ -41,7 +46,12 @@ func checkFileIsExist(filename string) bool {
 	return exist
 }
 
+
 func WriteWithIoutil(content string) {
+
+
+	mutex.Lock()
+	defer mutex.Unlock()
 	_, err := io.WriteString(f, content) //写入文件(字符串)
 	check(err)
 }
@@ -69,7 +79,7 @@ func getListMain (listurl string,tasknum int){
 		}
 		time.Sleep(time.Duration(10)*time.Millisecond)
 		tasks <- task
-		//fmt.Printf("Link #%d: '%s'\n", index, link)
+		log.Print("Link #%d: '%s'\n", index, link)
 	})
 
 	close(tasks)
@@ -97,16 +107,17 @@ func getContent(newurl string){
 		log.Fatal(err)
 	}
 	//目录获取
+	var txt string
 	doc.Find(".content h1").Each(func(i int, s *goquery.Selection) {
 		centstr := s.Text()
-		WriteWithIoutil("\r\n"+strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1)+"\r\n")
-		log.Print(strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1))
+		txt +=  "\r\n"+strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1)+"\r\n"
 	})
 	//正文获取
 	doc.Find(".showtxt").Each(func(i int, s *goquery.Selection) {
 		centstr := s.Text()
-		WriteWithIoutil(strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1))
-		//log.Print(strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1))
+		txt += strings.Replace(enc.ConvertString(centstr), "聽聽聽聽", "", -1)
+		WriteWithIoutil(txt)
+		log.Print(txt)
 	})
 }
 
@@ -121,7 +132,7 @@ var savepath = flag.String("save", "text/1.txt", "Address of Storage Documents f
 func main() {
 
 	flag.Parse()
-
+	mutex = new(sync.Mutex)
 	timestrat:=time.Now().Unix()
 	var err1 error
 
